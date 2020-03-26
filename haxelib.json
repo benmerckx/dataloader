@@ -1,0 +1,11 @@
+{
+	"name": "dataloader",
+	"license": "MIT",
+	"tags": ["cross"],
+	"classPath": "src",
+	"description": "",
+	"contributors": ["benmerckx"],
+	"releasenote": "Initial",
+	"version": "0.0.0",
+	"url": "https://github.com/benmerckx/genes"
+}
