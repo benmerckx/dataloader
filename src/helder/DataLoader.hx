@@ -1,6 +1,8 @@
-package dataloader;
+package helder;
 
 import haxe.ds.ReadOnlyArray;
+import haxe.Constraints.IMap;
+import helder.RuntimeMap;
 
 using tink.CoreApi;
 
@@ -17,7 +19,7 @@ typedef Options<K, V, C> = {
   final ?batchScheduleFn: (callback: () -> Void)->Void;
   final ?cache: Bool;
   final ?cacheKeyFn: (key: K) -> C;
-  final ?cacheMap: Map<C, Promise<V>>;
+  final ?cacheMap: RuntimeMap<C, Promise<V>>;
 }
 
 // Private: Describes a batch of requests
@@ -41,17 +43,13 @@ private typedef Batch<K, V> = {
  * different access permissions and consider creating a new instance per
  * web request.
  */
-// There's no proper way to detirmine C without default type parameters
-// But even if there was we'd have trouble getting a Map instance based on a
-// generic type parameter
-typedef C = String;
-
-class DataLoader<K, V /*, C*/> {
+class DataLoader<K, V, C> {
   final batchLoadFn: BatchLoadFn<K, V>;
   final maxBatchSize: Float;
   final batchScheduleFn: (callback: () -> Void)->Void;
   final cacheKeyFn: (key: K) -> C;
-  final cacheMap: Map<C, Promise<V>>;
+  final cache: Bool;
+  final cacheMap: IMap<C, Promise<V>>;
   var batch: Batch<K, V> = null;
 
   public function new(batchLoadFn: BatchLoadFn<K, V>,
@@ -60,6 +58,10 @@ class DataLoader<K, V /*, C*/> {
     this.maxBatchSize = getValidMaxBatchSize(options);
     this.batchScheduleFn = getValidBatchScheduleFn(options);
     this.cacheKeyFn = getValidCacheKeyFn(options);
+    this.cache = switch options {
+      case null | {cache: null | true}: true;
+      default: false;
+    }
     this.cacheMap = getValidCacheMap(options);
   }
 
@@ -71,7 +73,7 @@ class DataLoader<K, V /*, C*/> {
     var cacheKey = cacheKeyFn(key);
 
     // If caching and there is a cache-hit, return cached Promise.
-    if (cacheMap != null) {
+    if (cache) {
       var cachedPromise = cacheMap.get(cacheKey);
       if (cachedPromise != null) {
         var cacheHits = switch batch.cacheHits {
@@ -97,7 +99,7 @@ class DataLoader<K, V /*, C*/> {
     });
 
     // If caching, cache this promise.
-    if (cacheMap != null) {
+    if (cache) {
       cacheMap.set(cacheKey, promise);
     }
 
@@ -209,7 +211,7 @@ class DataLoader<K, V /*, C*/> {
    * method chaining.
    */
   public function clear(key: K) {
-    if (cacheMap != null) {
+    if (cache) {
       var cacheKey = cacheKeyFn(key);
       cacheMap.remove(cacheKey);
     }
@@ -222,7 +224,7 @@ class DataLoader<K, V /*, C*/> {
    * method chaining.
    */
   public function clearAll() {
-    if (cacheMap != null) {
+    if (cache) {
       cacheMap.clear();
     }
     return this;
@@ -235,7 +237,7 @@ class DataLoader<K, V /*, C*/> {
    * To prime the cache with an error at a key, provide an Error instance.
    */
   public function prime(key: K, value: Outcome<V, Error>) {
-    if (cacheMap != null) {
+    if (cache) {
       var cacheKey = cacheKeyFn(key);
 
       // Only add the key if it does not already exist.
@@ -260,7 +262,7 @@ class DataLoader<K, V /*, C*/> {
   }
 
   // Private: Resolves the Promises for any cache hits in this batch.
-  static function resolveCacheHits<K, V>(batch: Batch<K, V>) {
+  function resolveCacheHits(batch: Batch<K, V>) {
     if (batch.cacheHits != null) {
       for (i in 0...batch.keys.length) {
         batch.cacheHits[i]();
@@ -269,8 +271,7 @@ class DataLoader<K, V /*, C*/> {
   }
 
   // Private: given the DataLoader's options, produce a valid max batch size.
-  static function getValidMaxBatchSize<K, V, C>(?options: Options<K, V,
-    C>): Float
+  function getValidMaxBatchSize(?options: Options<K, V, C>): Float
     return switch options {
       case null | {batch: null | true, maxBatchSize: null}:
         Math.POSITIVE_INFINITY;
@@ -282,27 +283,26 @@ class DataLoader<K, V /*, C*/> {
     }
 
   // Private
-  static function getValidBatchScheduleFn<K, V, C>(?options: Options<K, V,
-    C>): (() -> Void)->Void
+  function getValidBatchScheduleFn(?options: Options<K, V, C>): (() -> Void)->
+    Void
     return switch options {
       case null | {batchScheduleFn: null}: f -> haxe.MainLoop.add(f);
       case {batchScheduleFn: f}: f;
     }
 
   // Private: given the DataLoader's options, produce a cache key function.
-  static function getValidCacheKeyFn<K, V, C>(?options: Options<K, V, C>): K->C
+  function getValidCacheKeyFn(?options: Options<K, V, C>): K->C
     return switch options {
       case null | {cacheKeyFn: null}: (k: K) -> (cast k : C);
       case {cacheKeyFn: f}: f;
     }
 
   // Private: given the DataLoader's options, produce a CacheMap to be used.
-  @:generic static function getValidCacheMap<K, V, C>(?options: Options<K, V,
-    C>): Null<Map<C, Promise<V>>> {
+  static function getValidCacheMap<K, V, C>(?options: Options<K, V,
+    C>): Null<IMap<C, Promise<V>>> {
     return switch options {
-      case null | {cache: null | true, cacheMap: null}: new Map();
-      case {cache: null | true, cacheMap: cacheMap}: cacheMap;
-      default: null;
+      case null: new RuntimeMap();
+      case {cacheMap: cacheMap}: cacheMap;
     }
   }
 }

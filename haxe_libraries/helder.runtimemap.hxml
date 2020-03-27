@@ -1,0 +1,3 @@
+# @install: lix --silent download "gh://github.com/helder/runtimemap#80594cdf1b46a3fdfc2a7aa9cce9def10c169062" into helder.runtimemap/0.0.0/github/80594cdf1b46a3fdfc2a7aa9cce9def10c169062
+-cp ${HAXE_LIBCACHE}/helder.runtimemap/0.0.0/github/80594cdf1b46a3fdfc2a7aa9cce9def10c169062/src
+-D helder.runtimemap=0.0.0

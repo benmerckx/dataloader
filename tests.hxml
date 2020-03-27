@@ -1,4 +1,5 @@
--lib dataloader
+-lib helder.runtimemap
+-lib helder.dataloader
 -lib tink_unittest
 -main tests.Run
 -dce full

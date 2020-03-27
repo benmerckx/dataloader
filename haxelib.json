@@ -1,5 +1,5 @@
 {
-	"name": "dataloader",
+	"name": "helder.dataloader",
 	"license": "MIT",
 	"tags": ["cross"],
 	"classPath": "src",
