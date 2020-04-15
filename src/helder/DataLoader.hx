@@ -29,8 +29,7 @@ private typedef Batch<K, V> = {
   callbacks: Array<{
     resolve: (value: V) -> Void,
     reject: (error: Error) -> Void
-  }>,
-  ?cacheHits: Array<() -> Void>
+  }>
 }
 
 /**
@@ -76,18 +75,7 @@ class DataLoader<K, V, C> {
     if (cache) {
       var cachedPromise = cacheMap.get(cacheKey);
       if (cachedPromise != null) {
-        var cacheHits = switch batch.cacheHits {
-          case null: batch.cacheHits = [];
-          case v: v;
-        }
-        return new Promise((resolve, reject) -> {
-          cacheHits.push(() -> {
-            cachedPromise.handle(res -> switch res {
-              case Success(v): resolve(v);
-              case Failure(e): reject(e);
-            });
-          });
-        });
+        return cachedPromise;
       }
     }
 
@@ -112,11 +100,8 @@ class DataLoader<K, V, C> {
     // If there is an existing batch which has not yet dispatched and is within
     // the limit of the batch size, then return it.
     var existingBatch = batch;
-    if (existingBatch != null
-      && !existingBatch.hasDispatched
-      && existingBatch.keys.length < maxBatchSize
-      && (existingBatch.cacheHits == null
-        || existingBatch.cacheHits.length < maxBatchSize)) {
+    if (existingBatch != null && !existingBatch.hasDispatched
+      && existingBatch.keys.length < maxBatchSize) {
       return existingBatch;
     }
 
@@ -140,7 +125,6 @@ class DataLoader<K, V, C> {
 
     // If there's nothing to load, resolve any cache hits and return early.
     if (batch.keys.length == 0) {
-      resolveCacheHits(batch);
       return;
     }
 
@@ -167,8 +151,7 @@ class DataLoader<K, V, C> {
           + '\n\nKeys:\n${batch.keys}'
           + '\n\nValues:\n${values}');
       }
-      // Resolve all cache hits in the same micro-task as freshly loaded values.
-      resolveCacheHits(batch);
+
       // Step through values, resolving or rejecting each Promise in the batch.
       for (i in 0...batch.callbacks.length) {
         var value = values[i];
@@ -254,20 +237,9 @@ class DataLoader<K, V, C> {
   // Private: do not cache individual loads if the entire batch dispatch fails,
   // but still reject each request so they do not hang.
   function failedDispatch(batch: Batch<K, V>, error: Error) {
-    // Cache hits are resolved, even though the batch failed.
-    resolveCacheHits(batch);
     for (i in 0...batch.keys.length) {
       clear(batch.keys[i]);
       batch.callbacks[i].reject(error);
-    }
-  }
-
-  // Private: Resolves the Promises for any cache hits in this batch.
-  function resolveCacheHits(batch: Batch<K, V>) {
-    if (batch.cacheHits != null) {
-      for (i in 0...batch.keys.length) {
-        batch.cacheHits[i]();
-      }
     }
   }
 
