@@ -7,7 +7,7 @@
 	"contributors": ["benmerckx"],
 	"releasenote": "Initial",
 	"version": "0.0.0",
-	"url": "https://github.com/benmerckx/genes",
+	"url": "https://github.com/helder/dataloader",
 	"dependencies": {
 		"helder.runtimemap": ""
 	}
