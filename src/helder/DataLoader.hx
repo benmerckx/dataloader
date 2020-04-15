@@ -115,7 +115,8 @@ class DataLoader<K, V, C> {
     if (existingBatch != null
       && !existingBatch.hasDispatched
       && existingBatch.keys.length < maxBatchSize
-      && (existingBatch.cacheHits == null || existingBatch.cacheHits.length < maxBatchSize)) {
+      && (existingBatch.cacheHits == null
+        || existingBatch.cacheHits.length < maxBatchSize)) {
       return existingBatch;
     }
 
@@ -301,7 +302,7 @@ class DataLoader<K, V, C> {
   static function getValidCacheMap<K, V, C>(?options: Options<K, V,
     C>): Null<IMap<C, Promise<V>>> {
     return switch options {
-      case null: new RuntimeMap();
+      case null | {cacheMap: null}: new RuntimeMap();
       case {cacheMap: cacheMap}: cacheMap;
     }
   }
